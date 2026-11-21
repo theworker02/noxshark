@@ -1,0 +1,5 @@
+# Keep GitHub Linguist focused on NoxShark's authored Rust implementation.
+*.rs linguist-language=Rust
+*.rs linguist-detectable=true
+Cargo.lock linguist-generated=true
+
