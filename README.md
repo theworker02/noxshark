@@ -1,17 +1,32 @@
-# NoxShark
+<div align="center">
+  <img src="assets/noxshark-mark.svg" width="144" alt="NoxShark original mark" />
 
-NoxShark is an original, clean-room Rust packet analysis application. It is a new project with an offline-first architecture; it does not copy Wireshark code, assets, branding, or logo. Its original project mark is available at [`assets/noxshark-mark.svg`](assets/noxshark-mark.svg).
+  # NoxShark
+
+  **A Rust-native packet analysis engine and desktop inspector.**
+
+  _An original clean-room rewrite inspired by the workflow of Wireshark._
+</div>
+
+## What it is
+
+NoxShark is a new packet-analysis application written in Rust. It preserves the familiar goals of a desktop network inspector—open capture files, dissect packets, filter results, and inspect protocol details—while using an original codebase, visual identity, and user interface.
+
+It is **not** a Wireshark mirror or a copy of Wireshark source code. This repository remains a GitHub fork to preserve the upstream relationship and its GPL-2.0-or-later licensing context; NoxShark's active implementation is independently authored in Rust.
 
 ## Current capability
 
-- Native Rust desktop UI built with `eframe`/egui
-- Safe, bounded parsing of classic Ethernet PCAP and little-endian PCAPNG files
-- Ethernet, ARP, IPv4, IPv6, ICMP, TCP, UDP, DNS-question, HTTP/1 header, and TLS-record recognition
-- Display filters: `protocol == TLS`, `ip.addr == 192.0.2.10`, `port == 443`, and `contains == text`
-- Validated capture-filter language ready for a future approved live-capture adapter: `tcp and port 443`, `host 192.0.2.10`, `http`, `arp`, `not udp`
-- TLS metadata and ClientHello SNI only; this project does **not** decrypt traffic or circumvent encryption
+| Area | Implemented today |
+| --- | --- |
+| Desktop | Native Rust GUI with `eframe` / `egui` |
+| Capture files | Bounded parsing for classic Ethernet PCAP and little-endian PCAPNG |
+| Protocols | Ethernet, ARP, IPv4, IPv6, ICMP, TCP, UDP, DNS, HTTP/1, and TLS records |
+| Filtering | Display filters for protocol, address, port, and text; validated capture-filter language for a future live-capture adapter |
+| TLS | Record metadata and ClientHello SNI recognition—no decryption or encryption bypassing |
 
-## Run
+## Run locally
+
+Prerequisite: a current stable [Rust toolchain](https://www.rust-lang.org/tools/install).
 
 ```powershell
 cargo run -p noxshark-desktop
@@ -20,11 +35,17 @@ cargo run -p noxshark-desktop
 ## Verify
 
 ```powershell
-cargo test -p noxshark-core
+cargo fmt --all -- --check
+cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-## Scope and security
+## Project status
 
-Live capture remains intentionally unimplemented in this first slice. It requires a platform-specific, permissioned adapter (Npcap/libpcap or equivalent) and must never expose raw shell execution or unvalidated BPF input. TCP stream reassembly, full TLS handshake extension decoding, timestamp-resolution options, and decryption-key support are planned follow-on work—not claimed functionality.
+NoxShark is an early, working foundation—not a feature-complete replacement for Wireshark. Live capture, TCP stream reassembly, complete TLS extension coverage, timestamp-resolution options, and controlled decryption-key support remain future work.
 
+Live capture will require a platform-specific, permissioned adapter such as Npcap or libpcap. NoxShark will not expose arbitrary shell execution or accept unvalidated BPF input.
+
+## Identity and attribution
+
+The NoxShark name, mark, UI, and Rust implementation are original. Wireshark is a trademark of the Wireshark Foundation; NoxShark is not affiliated with or endorsed by the Wireshark Foundation. See [NOTICE.md](NOTICE.md) and [COPYING](COPYING) for licensing and attribution information.
