@@ -20,8 +20,8 @@ It is **not** a Wireshark mirror or a copy of Wireshark source code. This reposi
 | --- | --- |
 | Desktop | Native Rust GUI with `eframe` / `egui` |
 | Capture files | Bounded parsing for classic Ethernet PCAP and little-endian PCAPNG |
-| Protocols | Ethernet with 802.1Q / QinQ VLAN tags, ARP, IPv4, IPv6, ICMP, TCP, UDP, DNS, HTTP/1, and TLS records |
-| Inspection | TCP sequence / acknowledgement numbers, flags, and payload lengths; DNS questions; HTTP headers; TLS record and ClientHello SNI metadata |
+| Protocols | Ethernet with 802.1Q / QinQ VLAN tags, ARP, IPv4, IPv6, ICMP, TCP, UDP, DNS, DHCPv4, HTTP/1, and TLS records |
+| Inspection | TCP sequence / acknowledgement numbers, flags, and payload lengths; DNS response status and answers; DHCP message / hostname metadata; HTTP headers; TLS record and ClientHello SNI metadata |
 | Filtering | Display filters for protocol, address, port, and text, combinable with `and`, `or`, and `not`; validated capture-filter language for a future live-capture adapter |
 | TLS | Record metadata and ClientHello SNI recognition—no decryption or encryption bypassing |
 
@@ -46,6 +46,16 @@ cargo clippy --workspace --all-targets -- -D warnings
 NoxShark is an early, working foundation—not a feature-complete replacement for Wireshark. Live capture, TCP stream reassembly, complete TLS extension coverage, timestamp-resolution options, and controlled decryption-key support remain future work.
 
 Live capture will require a platform-specific, permissioned adapter such as Npcap or libpcap. NoxShark will not expose arbitrary shell execution or accept unvalidated BPF input.
+
+## Project organization
+
+The workspace separates capture-file readers, dissectors, filters, analysis models, and the desktop UI. See [docs/ORGANIZATION.md](docs/ORGANIZATION.md) for the clean-room structure comparison and growth boundaries.
+
+The full rewrite program is tracked in [docs/PARITY_PLAN.md](docs/PARITY_PLAN.md). It marks implemented Rust capabilities separately from planned parity work.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local development checks, parser safety requirements, and capture-fixture policy.
 
 ## Identity and attribution
 

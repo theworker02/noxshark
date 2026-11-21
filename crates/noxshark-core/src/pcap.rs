@@ -7,9 +7,11 @@ pub fn read_pcap(bytes: &[u8]) -> Result<Vec<Packet>, NoxSharkError> {
             "file is smaller than a pcap header".into(),
         ));
     }
-    let little = match &bytes[..4] {
-        [0xd4, 0xc3, 0xb2, 0xa1] => true,
-        [0xa1, 0xb2, 0xc3, 0xd4] => false,
+    let (little, nanosecond_resolution) = match &bytes[..4] {
+        [0xd4, 0xc3, 0xb2, 0xa1] => (true, false),
+        [0xa1, 0xb2, 0xc3, 0xd4] => (false, false),
+        [0x4d, 0x3c, 0xb2, 0xa1] => (true, true),
+        [0xa1, 0xb2, 0x3c, 0x4d] => (false, true),
         [0x0a, 0x0d, 0x0d, 0x0a] => return read_pcapng(bytes),
         _ => return Err(NoxSharkError::InvalidCapture("unknown file magic".into())),
     };
@@ -35,7 +37,7 @@ pub fn read_pcap(bytes: &[u8]) -> Result<Vec<Packet>, NoxSharkError> {
             });
         }
         let seconds = read_u32(offset);
-        let micros = read_u32(offset + 4);
+        let fraction = read_u32(offset + 4);
         let included = read_u32(offset + 8) as usize;
         offset += 16;
         if bytes.len() - offset < included {
@@ -45,7 +47,12 @@ pub fn read_pcap(bytes: &[u8]) -> Result<Vec<Packet>, NoxSharkError> {
         }
         packets.push(dissect(
             packets.len() + 1,
-            u64::from(seconds) * 1_000_000 + u64::from(micros),
+            u64::from(seconds) * 1_000_000
+                + if nanosecond_resolution {
+                    u64::from(fraction) / 1_000
+                } else {
+                    u64::from(fraction)
+                },
             bytes[offset..offset + included].to_vec(),
         ));
         offset += included;
@@ -60,5 +67,18 @@ mod tests {
     fn rejects_truncated_pcapng() {
         assert!(read_pcap(&[10, 13, 13, 10]).is_err());
     }
-}
 
+    #[test]
+    fn converts_nanosecond_pcap_timestamps_to_micros() {
+        let mut bytes = vec![0x4d, 0x3c, 0xb2, 0xa1];
+        bytes.extend_from_slice(&[0; 16]);
+        bytes.extend_from_slice(&1_u32.to_le_bytes());
+        bytes.extend_from_slice(&1_u32.to_le_bytes());
+        bytes.extend_from_slice(&1_500_u32.to_le_bytes());
+        bytes.extend_from_slice(&14_u32.to_le_bytes());
+        bytes.extend_from_slice(&14_u32.to_le_bytes());
+        bytes.extend_from_slice(&[0; 14]);
+        let packets = read_pcap(&bytes).expect("valid nanosecond PCAP");
+        assert_eq!(packets[0].timestamp_micros, 1_000_001);
+    }
+}

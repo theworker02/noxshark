@@ -16,7 +16,8 @@ pub use capture_filter::{CaptureFilter, CaptureFilterError};
 pub use display_filter::{DisplayFilter, DisplayFilterError};
 pub use error::NoxSharkError;
 pub use model::{
-    DnsMetadata, HttpMetadata, Packet, PacketSummary, Protocol, TcpMetadata, TlsMetadata,
+    DhcpMetadata, DnsMetadata, HttpMetadata, Packet, PacketSummary, Protocol, TcpMetadata,
+    TlsMetadata,
 };
 pub use pcap::read_pcap;
 pub use statistics::CaptureStatistics;

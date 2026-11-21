@@ -10,6 +10,7 @@ pub enum Protocol {
     Tcp,
     Udp,
     Dns,
+    Dhcp,
     Tls,
     Http,
     Unknown,
@@ -28,6 +29,7 @@ impl Protocol {
             Self::Tcp => "TCP",
             Self::Udp => "UDP",
             Self::Dns => "DNS",
+            Self::Dhcp => "DHCP",
             Self::Tls => "TLS",
             Self::Http => "HTTP",
             Self::Unknown => "DATA",
@@ -48,6 +50,15 @@ pub struct DnsMetadata {
     pub is_response: bool,
     pub query_name: Option<String>,
     pub query_type: Option<String>,
+    pub answer_count: u16,
+    pub response_code: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DhcpMetadata {
+    pub message_type: Option<String>,
+    pub client_hostname: Option<String>,
+    pub requested_ip: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -86,6 +97,7 @@ pub struct Packet {
     pub summary: PacketSummary,
     pub tls: Option<TlsMetadata>,
     pub dns: Option<DnsMetadata>,
+    pub dhcp: Option<DhcpMetadata>,
     pub http: Option<HttpMetadata>,
     pub tcp: Option<TcpMetadata>,
 }

@@ -1,5 +1,6 @@
 use crate::model::{
-    DnsMetadata, HttpMetadata, Packet, PacketSummary, Protocol, TcpMetadata, TlsMetadata,
+    DhcpMetadata, DnsMetadata, HttpMetadata, Packet, PacketSummary, Protocol, TcpMetadata,
+    TlsMetadata,
 };
 
 pub fn dissect(number: usize, timestamp_micros: u64, bytes: Vec<u8>) -> Packet {
@@ -14,6 +15,7 @@ pub fn dissect(number: usize, timestamp_micros: u64, bytes: Vec<u8>) -> Packet {
     };
     let mut tls = None;
     let mut dns = None;
+    let mut dhcp = None;
     let mut http = None;
     let mut tcp = None;
     if bytes.len() >= 14 {
@@ -39,6 +41,7 @@ pub fn dissect(number: usize, timestamp_micros: u64, bytes: Vec<u8>) -> Packet {
                 summary,
                 tls,
                 dns,
+                dhcp,
                 http,
                 tcp,
             };
@@ -50,6 +53,7 @@ pub fn dissect(number: usize, timestamp_micros: u64, bytes: Vec<u8>) -> Packet {
                 &mut summary,
                 &mut tls,
                 &mut dns,
+                &mut dhcp,
                 &mut http,
                 &mut tcp,
             ),
@@ -59,6 +63,7 @@ pub fn dissect(number: usize, timestamp_micros: u64, bytes: Vec<u8>) -> Packet {
                 &mut summary,
                 &mut tls,
                 &mut dns,
+                &mut dhcp,
                 &mut http,
                 &mut tcp,
             ),
@@ -75,6 +80,7 @@ pub fn dissect(number: usize, timestamp_micros: u64, bytes: Vec<u8>) -> Packet {
         summary,
         tls,
         dns,
+        dhcp,
         http,
         tcp,
     }
@@ -86,6 +92,7 @@ fn dissect_ipv4(
     summary: &mut PacketSummary,
     tls: &mut Option<TlsMetadata>,
     dns: &mut Option<DnsMetadata>,
+    dhcp: &mut Option<DhcpMetadata>,
     http: &mut Option<HttpMetadata>,
     tcp: &mut Option<TcpMetadata>,
 ) {
@@ -102,7 +109,7 @@ fn dissect_ipv4(
     match data[9] {
         1 => dissect_icmp(&data[header_len..], protocols, summary, Protocol::Icmp),
         6 => dissect_tcp(&data[header_len..], protocols, summary, tls, http, tcp),
-        17 => dissect_udp(&data[header_len..], protocols, summary, dns),
+        17 => dissect_udp(&data[header_len..], protocols, summary, dns, dhcp),
         value => {
             summary.protocol = Protocol::Ipv4;
             summary.info = format!("IPv4 protocol {value}");
@@ -137,6 +144,7 @@ fn dissect_ipv6(
     summary: &mut PacketSummary,
     tls: &mut Option<TlsMetadata>,
     dns: &mut Option<DnsMetadata>,
+    dhcp: &mut Option<DhcpMetadata>,
     http: &mut Option<HttpMetadata>,
     tcp: &mut Option<TcpMetadata>,
 ) {
@@ -148,15 +156,48 @@ fn dissect_ipv6(
     let destination = <[u8; 16]>::try_from(&data[24..40]).expect("fixed IPv6 header");
     summary.source = std::net::Ipv6Addr::from(source).to_string();
     summary.destination = std::net::Ipv6Addr::from(destination).to_string();
-    match data[6] {
-        6 => dissect_tcp(&data[40..], protocols, summary, tls, http, tcp),
-        17 => dissect_udp(&data[40..], protocols, summary, dns),
-        58 => dissect_icmp(&data[40..], protocols, summary, Protocol::Icmpv6),
+    let (next_header, payload) = match ipv6_payload(data) {
+        Some(value) => value,
+        None => {
+            summary.protocol = Protocol::Ipv6;
+            summary.info = "Truncated IPv6 extension header".into();
+            return;
+        }
+    };
+    match next_header {
+        6 => dissect_tcp(payload, protocols, summary, tls, http, tcp),
+        17 => dissect_udp(payload, protocols, summary, dns, dhcp),
+        58 => dissect_icmp(payload, protocols, summary, Protocol::Icmpv6),
         value => {
             summary.protocol = Protocol::Ipv6;
             summary.info = format!("IPv6 next header {value}");
         }
     }
+}
+
+fn ipv6_payload(data: &[u8]) -> Option<(u8, &[u8])> {
+    let mut next_header = data[6];
+    let mut offset = 40;
+    // Walk a bounded number of standard extension headers. This keeps parsing
+    // predictable for untrusted captures and still reaches common TCP/UDP data.
+    for _ in 0..8 {
+        let header_len = match next_header {
+            0 | 43 | 60 => {
+                let len = usize::from(*data.get(offset + 1)?);
+                (len + 1) * 8
+            }
+            44 => 8,
+            51 => {
+                let len = usize::from(*data.get(offset + 1)?);
+                (len + 2) * 4
+            }
+            _ => return data.get(offset..).map(|payload| (next_header, payload)),
+        };
+        next_header = *data.get(offset)?;
+        offset = offset.checked_add(header_len)?;
+        data.get(offset..)?;
+    }
+    None
 }
 
 fn dissect_icmp(
@@ -296,6 +337,7 @@ fn dissect_udp(
     protocols: &mut Vec<Protocol>,
     summary: &mut PacketSummary,
     dns: &mut Option<DnsMetadata>,
+    dhcp: &mut Option<DhcpMetadata>,
 ) {
     if data.len() < 8 {
         return;
@@ -315,6 +357,16 @@ fn dissect_udp(
             .as_ref()
             .and_then(|value| value.query_name.as_ref())
             .map_or_else(|| "DNS message".into(), |name| format!("DNS {name}"));
+    } else if matches!(src, 67 | 68) || matches!(dst, 67 | 68) {
+        if let Some(metadata) = parse_dhcp(&data[8..]) {
+            protocols.push(Protocol::Dhcp);
+            summary.protocol = Protocol::Dhcp;
+            summary.info = metadata
+                .message_type
+                .as_deref()
+                .map_or_else(|| "DHCP message".into(), |kind| format!("DHCP {kind}"));
+            *dhcp = Some(metadata);
+        }
     }
 }
 
@@ -397,12 +449,16 @@ fn parse_dns(data: &[u8]) -> Option<DnsMetadata> {
     let transaction_id = u16::from_be_bytes([data[0], data[1]]);
     let is_response = data[2] & 0x80 != 0;
     let questions = u16::from_be_bytes([data[4], data[5]]);
+    let answer_count = u16::from_be_bytes([data[6], data[7]]);
+    let response_code = dns_response_code(data[3] & 0x0f).into();
     if questions == 0 {
         return Some(DnsMetadata {
             transaction_id,
             is_response,
             query_name: None,
             query_type: None,
+            answer_count,
+            response_code,
         });
     }
     let (name, offset) = parse_dns_name(data, 12, 0)?;
@@ -422,6 +478,77 @@ fn parse_dns(data: &[u8]) -> Option<DnsMetadata> {
         is_response,
         query_name: Some(name),
         query_type,
+        answer_count,
+        response_code,
+    })
+}
+
+fn dns_response_code(value: u8) -> &'static str {
+    match value {
+        0 => "No error",
+        1 => "Format error",
+        2 => "Server failure",
+        3 => "NXDOMAIN",
+        4 => "Not implemented",
+        5 => "Refused",
+        _ => "Other error",
+    }
+}
+
+fn parse_dhcp(data: &[u8]) -> Option<DhcpMetadata> {
+    // BOOTP fixed header plus the DHCP magic cookie.
+    if data.len() < 240 || data.get(236..240)? != [99, 130, 83, 99] {
+        return None;
+    }
+    let mut message_type = None;
+    let mut client_hostname = None;
+    let mut requested_ip = None;
+    let mut offset = 240;
+    while offset < data.len() {
+        let option = *data.get(offset)?;
+        offset += 1;
+        match option {
+            0 => continue,
+            255 => break,
+            _ => {}
+        }
+        let length = usize::from(*data.get(offset)?);
+        offset += 1;
+        let value = data.get(offset..offset + length)?;
+        offset += length;
+        match option {
+            53 if value.len() == 1 => {
+                message_type = Some(
+                    match value[0] {
+                        1 => "Discover",
+                        2 => "Offer",
+                        3 => "Request",
+                        4 => "Decline",
+                        5 => "Ack",
+                        6 => "Nak",
+                        7 => "Release",
+                        8 => "Inform",
+                        _ => "Other",
+                    }
+                    .into(),
+                );
+            }
+            12 if value.is_ascii() => {
+                client_hostname = std::str::from_utf8(value).ok().map(str::to_owned);
+            }
+            50 if value.len() == 4 => {
+                requested_ip = Some(format!(
+                    "{}.{}.{}.{}",
+                    value[0], value[1], value[2], value[3]
+                ));
+            }
+            _ => {}
+        }
+    }
+    Some(DhcpMetadata {
+        message_type,
+        client_hostname,
+        requested_ip,
     })
 }
 
@@ -557,5 +684,40 @@ mod tests {
         let packet = dissect(1, 0, bytes);
         assert!(packet.protocols.contains(&Protocol::Vlan));
         assert_eq!(packet.tcp.expect("TCP metadata").flags, vec!["SYN", "ACK"]);
+    }
+
+    #[test]
+    fn follows_ipv6_hop_by_hop_header_to_tcp() {
+        let mut bytes = vec![0; 14 + 40 + 8 + 20];
+        bytes[12..14].copy_from_slice(&0x86dd_u16.to_be_bytes());
+        bytes[14] = 0x60;
+        bytes[20] = 0; // Hop-by-hop options header.
+        bytes[54] = 6; // Extension header points to TCP.
+        bytes[55] = 0; // Eight-byte extension header.
+        bytes[74] = 0x50;
+        bytes[75] = 0x02;
+        let packet = dissect(1, 0, bytes);
+        assert_eq!(packet.summary.protocol, Protocol::Tcp);
+        assert_eq!(packet.tcp.expect("TCP metadata").flags, vec!["SYN"]);
+    }
+
+    #[test]
+    fn dissects_dhcp_request_metadata() {
+        let mut bytes = vec![0; 14 + 20 + 8 + 240];
+        bytes[12..14].copy_from_slice(&0x0800_u16.to_be_bytes());
+        bytes[14] = 0x45;
+        bytes[23] = 17;
+        bytes[34..36].copy_from_slice(&68_u16.to_be_bytes());
+        bytes[36..38].copy_from_slice(&67_u16.to_be_bytes());
+        let payload = 14 + 20 + 8;
+        bytes[payload + 236..payload + 240].copy_from_slice(&[99, 130, 83, 99]);
+        bytes.extend_from_slice(&[53, 1, 3, 12, 4]);
+        bytes.extend_from_slice(b"nox1");
+        bytes.push(255);
+        let packet = dissect(1, 0, bytes);
+        assert_eq!(packet.summary.protocol, Protocol::Dhcp);
+        let dhcp = packet.dhcp.expect("DHCP metadata");
+        assert_eq!(dhcp.message_type.as_deref(), Some("Request"));
+        assert_eq!(dhcp.client_hostname.as_deref(), Some("nox1"));
     }
 }

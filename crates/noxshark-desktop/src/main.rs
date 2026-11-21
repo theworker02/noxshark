@@ -126,7 +126,10 @@ impl eframe::App for NoxSharkApp {
                 ui.label(RichText::new("Capture overview").strong());
                 ui.label(format!("{} frames · {} bytes", stats.total_packets, stats.total_bytes));
                 ui.small(format!("IPv4 {} · IPv6 {}", stats.ipv4_packets, stats.ipv6_packets));
-                ui.small(format!("TLS {} · DNS {}", stats.tls_packets, stats.dns_packets));
+                ui.small(format!(
+                    "TLS {} · DNS {} · DHCP {}",
+                    stats.tls_packets, stats.dns_packets, stats.dhcp_packets
+                ));
                 ui.small(format!("HTTP {} · ARP {}", stats.http_packets, stats.arp_packets));
                 ui.small(format!("TCP {} · UDP {} · VLAN {}", stats.tcp_packets, stats.udp_packets, stats.vlan_packets));
                 ui.separator();
@@ -224,7 +227,27 @@ impl eframe::App for NoxSharkApp {
                                 dns.query_type
                                     .as_ref()
                                     .map(|query_type| format!(" · {query_type}"))
-                                    .unwrap_or_default()
+                                    .unwrap_or_default(),
+                            ));
+                            if dns.is_response {
+                                ui.label(format!(
+                                    "DNS response: {} · {} answer(s)",
+                                    dns.response_code, dns.answer_count
+                                ));
+                            }
+                        }
+                        if let Some(dhcp) = &packet.dhcp {
+                            ui.label(format!(
+                                "DHCP: {}{}{}",
+                                dhcp.message_type.as_deref().unwrap_or("message"),
+                                dhcp.client_hostname
+                                    .as_ref()
+                                    .map(|name| format!(" · host {name}"))
+                                    .unwrap_or_default(),
+                                dhcp.requested_ip
+                                    .as_ref()
+                                    .map(|ip| format!(" · requested IP {ip}"))
+                                    .unwrap_or_default(),
                             ));
                         }
                         if let Some(http) = &packet.http {

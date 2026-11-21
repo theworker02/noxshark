@@ -1,0 +1,14 @@
+/target/
+/work/
+*.pcap
+*.pcapng
+*.cap
+!.github/**/*.pcap
+!tests/fixtures/**/*.pcap
+!tests/fixtures/**/*.pcapng
+
+# Local operating-system and editor state
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
