@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="24" height="24" viewBox="0 0 24 24">
-  <ws:states xmlns:ws="urn:x-wireshark-icon">
-    <ws:map-token color="#aaaaaa" token="ExpertWarn"/>
-    <ws:map-token color="#111111" token="ExpertForeground"/>
-  </ws:states>
-  <path d="M12 2.8L22 20.2H2Z" fill="#aaaaaa" stroke="#111111" stroke-width="1.5" stroke-linejoin="round"/>
-  <path d="M11.9 9H12.1A1 1 0 0 1 13.1 10V14A1 1 0 0 1 12.1 15H11.9A1 1 0 0 1 10.9 14V10A1 1 0 0 1 11.9 9ZM10.75 17.4A1.25 1.25 0 1 0 13.25 17.4A1.25 1.25 0 1 0 10.75 17.4Z" fill="#111111"/>
-</svg>

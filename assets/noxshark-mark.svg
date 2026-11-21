@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title description">
+  <title id="title">NoxShark original logo</title>
+  <desc id="description">An original midnight-blue octagonal network-analysis mark</desc>
+  <defs>
+    <linearGradient id="nox" x1="28" y1="28" x2="228" y2="228" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8BB2FF"/><stop offset="1" stop-color="#5366D9"/>
+    </linearGradient>
+  </defs>
+  <path fill="#111827" d="M75 18h106l57 57v106l-57 57H75l-57-57V75z"/>
+  <path fill="url(#nox)" d="M75 38h106l37 37v106l-37 37H75l-37-37V75z"/>
+  <path fill="#111827" d="M77 76h27l24 29 24-29h27l-38 45v59h-26v-59z"/>
+  <circle cx="72" cy="67" r="10" fill="#dce8ff"/><circle cx="184" cy="67" r="10" fill="#dce8ff"/>
+</svg>
+

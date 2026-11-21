@@ -1,0 +1,15 @@
+[package]
+name = "noxshark-desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+eframe = "0.31"
+rfd = "0.15"
+noxshark-core = { path = "../noxshark-core" }
+
