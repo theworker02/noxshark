@@ -10,8 +10,8 @@ NoxShark's objective is a clean-room Rust implementation of the major capabiliti
 | Capture filtering | Validated offline filter grammar | Permissioned native adapter that compiles only approved filters for Npcap/libpcap |
 | Analysis | Protocol totals, TCP metadata, DNS/DHCP/TLS inspection | Conversations, endpoints, service response timing, TCP stream reassembly, expert diagnostics |
 | Desktop UI | Native packet table, filter bar, statistics, packet inspector, bounded hex preview | Expandable protocol tree, byte-range selection, saved views, follow-stream UX, preferences |
-| Command line and export | Not implemented | Headless inspection, JSON/CSV export, reproducible filters and reports |
-| Extensibility | Not implemented | Versioned Rust dissector traits and restricted plugin process boundary |
+| Command line and export | Headless PCAP/PCAPNG inspection with table, JSON, and CSV output | Reports, richer export schema, and batch operation |
+| Extensibility | Built-in dissector descriptor registry and typed packet-field projection | Versioned Rust dissector traits and restricted plugin process boundary |
 | Live capture | Deliberately absent | Windows-first Npcap adapter with explicit interface selection and user approval |
 
 ## Engineering rules

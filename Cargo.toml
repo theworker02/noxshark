@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/noxshark-core", "crates/noxshark-desktop"]
+members = ["crates/noxshark-core", "crates/noxshark-desktop", "crates/noxshark-cli"]
 resolver = "2"
 
 [workspace.package]
@@ -15,4 +15,3 @@ unsafe_code = "forbid"
 [workspace.lints.clippy]
 all = "warn"
 pedantic = "warn"
-

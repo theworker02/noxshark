@@ -7,14 +7,17 @@ pub mod capture_filter;
 pub mod display_filter;
 pub mod dissect;
 pub mod error;
+pub mod fields;
 pub mod model;
 pub mod pcap;
 pub mod pcapng;
+pub mod registry;
 pub mod statistics;
 
 pub use capture_filter::{CaptureFilter, CaptureFilterError};
 pub use display_filter::{DisplayFilter, DisplayFilterError};
 pub use error::NoxSharkError;
+pub use fields::{PacketField, PacketFieldValue, packet_fields};
 pub use model::{
     DhcpMetadata, DnsMetadata, HttpMetadata, Packet, PacketSummary, Protocol, TcpMetadata,
     TlsMetadata,

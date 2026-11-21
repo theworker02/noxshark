@@ -33,6 +33,16 @@ Prerequisite: a current stable [Rust toolchain](https://www.rust-lang.org/tools/
 cargo run -p noxshark-desktop
 ```
 
+## Command-line inspection and export
+
+The Rust workspace also includes a headless reader for reproducible inspection and simple exports:
+
+```powershell
+cargo run -p noxshark-cli -- capture.pcap --filter "protocol == DNS" --format json
+```
+
+Supported formats are `table`, `csv`, and `json`. The CLI reads only the explicitly supplied capture file.
+
 ## Verify
 
 ```powershell

@@ -1,0 +1,8 @@
+[package]
+name = "noxshark-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+noxshark-core = { path = "../noxshark-core" }
