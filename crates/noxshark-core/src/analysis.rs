@@ -66,3 +66,22 @@ pub fn conversations(packets: &[Packet]) -> Vec<ConversationSummary> {
         )
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{conversations, endpoints};
+    use crate::dissect::dissect;
+
+    #[test]
+    fn groups_endpoints_and_conversations() {
+        let mut bytes = vec![0; 14 + 20 + 8];
+        bytes[12..14].copy_from_slice(&0x0800_u16.to_be_bytes());
+        bytes[14] = 0x45;
+        bytes[23] = 17;
+        bytes[26..30].copy_from_slice(&[192, 0, 2, 1]);
+        bytes[30..34].copy_from_slice(&[198, 51, 100, 2]);
+        let packet = dissect(1, 0, bytes);
+        assert_eq!(endpoints(&[packet.clone()]).len(), 2);
+        assert_eq!(conversations(&[packet]).len(), 1);
+    }
+}
