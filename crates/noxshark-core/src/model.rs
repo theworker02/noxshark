@@ -1,6 +1,7 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Protocol {
     Ethernet,
+    Vlan,
     Ipv4,
     Ipv6,
     Arp,
@@ -18,6 +19,7 @@ impl Protocol {
     pub const fn label(self) -> &'static str {
         match self {
             Self::Ethernet => "ETH",
+            Self::Vlan => "VLAN",
             Self::Ipv4 => "IPv4",
             Self::Ipv6 => "IPv6",
             Self::Arp => "ARP",
@@ -57,6 +59,14 @@ pub struct HttpMetadata {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TcpMetadata {
+    pub sequence_number: u32,
+    pub acknowledgement_number: u32,
+    pub flags: Vec<&'static str>,
+    pub payload_len: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PacketSummary {
     pub source: String,
     pub destination: String,
@@ -77,5 +87,5 @@ pub struct Packet {
     pub tls: Option<TlsMetadata>,
     pub dns: Option<DnsMetadata>,
     pub http: Option<HttpMetadata>,
+    pub tcp: Option<TcpMetadata>,
 }
-

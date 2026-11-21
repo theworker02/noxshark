@@ -10,6 +10,9 @@ pub struct CaptureStatistics {
     pub ipv6_packets: usize,
     pub http_packets: usize,
     pub arp_packets: usize,
+    pub tcp_packets: usize,
+    pub udp_packets: usize,
+    pub vlan_packets: usize,
 }
 
 impl CaptureStatistics {
@@ -32,7 +35,9 @@ impl CaptureStatistics {
             ipv6_packets: has(Protocol::Ipv6),
             http_packets: has(Protocol::Http),
             arp_packets: has(Protocol::Arp),
+            tcp_packets: has(Protocol::Tcp),
+            udp_packets: has(Protocol::Udp),
+            vlan_packets: has(Protocol::Vlan),
         }
     }
 }
-

@@ -6,6 +6,9 @@ pub enum DisplayFilter {
     Protocol(String),
     Address(String),
     Port(u16),
+    And(Box<Self>, Box<Self>),
+    Or(Box<Self>, Box<Self>),
+    Not(Box<Self>),
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DisplayFilterError(pub String);
@@ -22,19 +25,57 @@ impl DisplayFilter {
         if text.is_empty() {
             return Ok(None);
         }
+        Self::parse_expression(text)
+    }
+
+    fn parse_expression(text: &str) -> Result<Option<Self>, DisplayFilterError> {
+        if let Some((left, right)) = text.split_once(" or ") {
+            return Ok(Some(Self::Or(
+                Box::new(
+                    Self::parse_expression(left)?
+                        .ok_or_else(|| DisplayFilterError("left side of 'or' is empty".into()))?,
+                ),
+                Box::new(
+                    Self::parse_expression(right)?
+                        .ok_or_else(|| DisplayFilterError("right side of 'or' is empty".into()))?,
+                ),
+            )));
+        }
+        if let Some((left, right)) = text.split_once(" and ") {
+            return Ok(Some(Self::And(
+                Box::new(
+                    Self::parse_expression(left)?
+                        .ok_or_else(|| DisplayFilterError("left side of 'and' is empty".into()))?,
+                ),
+                Box::new(
+                    Self::parse_expression(right)?
+                        .ok_or_else(|| DisplayFilterError("right side of 'and' is empty".into()))?,
+                ),
+            )));
+        }
+        if let Some(term) = text.strip_prefix("not ") {
+            return Ok(Some(Self::Not(Box::new(
+                Self::parse_expression(term)?
+                    .ok_or_else(|| DisplayFilterError("term after 'not' is empty".into()))?,
+            ))));
+        }
+        Self::parse_term(text).map(Some)
+    }
+
+    fn parse_term(text: &str) -> Result<Self, DisplayFilterError> {
         let parts: Vec<_> = text.splitn(2, "==").map(str::trim).collect();
         match parts.as_slice() {
-            ["protocol", value] => Ok(Some(Self::Protocol(value.to_ascii_uppercase()))),
-            ["ip.addr", value] => Ok(Some(Self::Address((*value).to_owned()))),
+            ["protocol", value] if !value.is_empty() => Ok(Self::Protocol(value.to_ascii_uppercase())),
+            ["ip.addr", value] if !value.is_empty() => Ok(Self::Address((*value).to_owned())),
             ["port", value] => value
                 .parse()
-                .map(|p| Some(Self::Port(p)))
+                .map(Self::Port)
                 .map_err(|_| DisplayFilterError("port must be a number".into())),
             ["contains", value] if !value.is_empty() => {
-                Ok(Some(Self::Contains(value.to_ascii_lowercase())))
+                Ok(Self::Contains(value.to_ascii_lowercase()))
             }
             _ => Err(DisplayFilterError(
-                "use protocol == TLS, ip.addr == 1.2.3.4, port == 443, or contains == text".into(),
+                "use protocol == TLS, ip.addr == 1.2.3.4, port == 443, or contains == text; combine terms with and, or, and not".into(),
             )),
         }
     }
@@ -54,6 +95,9 @@ impl DisplayFilter {
             )
             .to_ascii_lowercase()
             .contains(term),
+            Self::And(left, right) => left.matches(packet) && right.matches(packet),
+            Self::Or(left, right) => left.matches(packet) || right.matches(packet),
+            Self::Not(term) => !term.matches(packet),
         }
     }
 }
@@ -80,5 +124,18 @@ mod tests {
                 .matches(&packet)
         );
     }
-}
 
+    #[test]
+    fn combines_filter_terms() {
+        let mut bytes = vec![0; 14 + 20 + 8];
+        bytes[12..14].copy_from_slice(&0x0800_u16.to_be_bytes());
+        bytes[14] = 0x45;
+        bytes[23] = 17;
+        bytes[34..36].copy_from_slice(&53_u16.to_be_bytes());
+        let packet = dissect(1, 0, bytes);
+        let filter = DisplayFilter::parse("protocol == UDP and port == 53")
+            .expect("valid filter")
+            .expect("nonempty filter");
+        assert!(filter.matches(&packet));
+    }
+}

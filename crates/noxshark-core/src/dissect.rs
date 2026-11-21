@@ -1,4 +1,6 @@
-use crate::model::{DnsMetadata, HttpMetadata, Packet, PacketSummary, Protocol, TlsMetadata};
+use crate::model::{
+    DnsMetadata, HttpMetadata, Packet, PacketSummary, Protocol, TcpMetadata, TlsMetadata,
+};
 
 pub fn dissect(number: usize, timestamp_micros: u64, bytes: Vec<u8>) -> Packet {
     let mut protocols = vec![Protocol::Ethernet];
@@ -13,25 +15,54 @@ pub fn dissect(number: usize, timestamp_micros: u64, bytes: Vec<u8>) -> Packet {
     let mut tls = None;
     let mut dns = None;
     let mut http = None;
+    let mut tcp = None;
     if bytes.len() >= 14 {
-        match u16::from_be_bytes([bytes[12], bytes[13]]) {
+        let mut ether_type = u16::from_be_bytes([bytes[12], bytes[13]]);
+        let mut payload_offset = 14;
+        // Support common 802.1Q and provider-bridging VLAN tags. Bound the
+        // nesting level so an adversarial frame cannot cause unbounded work.
+        for _ in 0..2 {
+            if !matches!(ether_type, 0x8100 | 0x88a8) || bytes.len() < payload_offset + 4 {
+                break;
+            }
+            protocols.push(Protocol::Vlan);
+            ether_type = u16::from_be_bytes([bytes[payload_offset + 2], bytes[payload_offset + 3]]);
+            payload_offset += 4;
+        }
+        if bytes.len() < payload_offset {
+            return Packet {
+                number,
+                timestamp_micros,
+                captured_len: bytes.len() as u32,
+                bytes,
+                protocols,
+                summary,
+                tls,
+                dns,
+                http,
+                tcp,
+            };
+        }
+        match ether_type {
             0x0800 => dissect_ipv4(
-                &bytes[14..],
+                &bytes[payload_offset..],
                 &mut protocols,
                 &mut summary,
                 &mut tls,
                 &mut dns,
                 &mut http,
+                &mut tcp,
             ),
             0x86dd => dissect_ipv6(
-                &bytes[14..],
+                &bytes[payload_offset..],
                 &mut protocols,
                 &mut summary,
                 &mut tls,
                 &mut dns,
                 &mut http,
+                &mut tcp,
             ),
-            0x0806 => dissect_arp(&bytes[14..], &mut protocols, &mut summary),
+            0x0806 => dissect_arp(&bytes[payload_offset..], &mut protocols, &mut summary),
             _ => {}
         }
     }
@@ -45,6 +76,7 @@ pub fn dissect(number: usize, timestamp_micros: u64, bytes: Vec<u8>) -> Packet {
         tls,
         dns,
         http,
+        tcp,
     }
 }
 
@@ -55,6 +87,7 @@ fn dissect_ipv4(
     tls: &mut Option<TlsMetadata>,
     dns: &mut Option<DnsMetadata>,
     http: &mut Option<HttpMetadata>,
+    tcp: &mut Option<TcpMetadata>,
 ) {
     if data.len() < 20 || data[0] >> 4 != 4 {
         return;
@@ -68,7 +101,7 @@ fn dissect_ipv4(
     summary.destination = format!("{}.{}.{}.{}", data[16], data[17], data[18], data[19]);
     match data[9] {
         1 => dissect_icmp(&data[header_len..], protocols, summary, Protocol::Icmp),
-        6 => dissect_tcp(&data[header_len..], protocols, summary, tls, http),
+        6 => dissect_tcp(&data[header_len..], protocols, summary, tls, http, tcp),
         17 => dissect_udp(&data[header_len..], protocols, summary, dns),
         value => {
             summary.protocol = Protocol::Ipv4;
@@ -105,6 +138,7 @@ fn dissect_ipv6(
     tls: &mut Option<TlsMetadata>,
     dns: &mut Option<DnsMetadata>,
     http: &mut Option<HttpMetadata>,
+    tcp: &mut Option<TcpMetadata>,
 ) {
     if data.len() < 40 || data[0] >> 4 != 6 {
         return;
@@ -115,7 +149,7 @@ fn dissect_ipv6(
     summary.source = std::net::Ipv6Addr::from(source).to_string();
     summary.destination = std::net::Ipv6Addr::from(destination).to_string();
     match data[6] {
-        6 => dissect_tcp(&data[40..], protocols, summary, tls, http),
+        6 => dissect_tcp(&data[40..], protocols, summary, tls, http, tcp),
         17 => dissect_udp(&data[40..], protocols, summary, dns),
         58 => dissect_icmp(&data[40..], protocols, summary, Protocol::Icmpv6),
         value => {
@@ -151,6 +185,7 @@ fn dissect_tcp(
     summary: &mut PacketSummary,
     tls: &mut Option<TlsMetadata>,
     http: &mut Option<HttpMetadata>,
+    tcp: &mut Option<TcpMetadata>,
 ) {
     if data.len() < 20 {
         return;
@@ -162,7 +197,21 @@ fn dissect_tcp(
     summary.source_port = Some(src);
     summary.destination_port = Some(dst);
     let header_len = usize::from(data[12] >> 4) * 4;
-    summary.info = format!("{src} → {dst}");
+    if header_len < 20 || data.len() < header_len {
+        return;
+    }
+    let flags = tcp_flags(data[13]);
+    *tcp = Some(TcpMetadata {
+        sequence_number: u32::from_be_bytes([data[4], data[5], data[6], data[7]]),
+        acknowledgement_number: u32::from_be_bytes([data[8], data[9], data[10], data[11]]),
+        flags: flags.clone(),
+        payload_len: data.len() - header_len,
+    });
+    summary.info = if flags.is_empty() {
+        format!("{src} → {dst}")
+    } else {
+        format!("{src} → {dst} [{}]", flags.join(", "))
+    };
     if data.len() >= header_len + 5 && (src == 443 || dst == 443 || data[header_len] == 22) {
         if let Some(metadata) = parse_tls(&data[header_len..]) {
             protocols.push(Protocol::Tls);
@@ -188,6 +237,22 @@ fn dissect_tcp(
         );
         *http = Some(metadata);
     }
+}
+
+fn tcp_flags(value: u8) -> Vec<&'static str> {
+    [
+        (0x01, "FIN"),
+        (0x02, "SYN"),
+        (0x04, "RST"),
+        (0x08, "PSH"),
+        (0x10, "ACK"),
+        (0x20, "URG"),
+        (0x40, "ECE"),
+        (0x80, "CWR"),
+    ]
+    .into_iter()
+    .filter_map(|(mask, label)| (value & mask != 0).then_some(label))
+    .collect()
 }
 
 fn parse_http(data: &[u8]) -> Option<HttpMetadata> {
@@ -479,5 +544,18 @@ mod tests {
         assert_eq!(packet.summary.protocol, Protocol::Arp);
         assert!(packet.summary.info.contains("192.0.2.2"));
     }
-}
 
+    #[test]
+    fn dissects_vlan_tagged_tcp_flags() {
+        let mut bytes = vec![0; 14 + 4 + 20 + 20];
+        bytes[12..14].copy_from_slice(&0x8100_u16.to_be_bytes());
+        bytes[16..18].copy_from_slice(&0x0800_u16.to_be_bytes());
+        bytes[18] = 0x45;
+        bytes[27] = 6;
+        bytes[50] = 0x50;
+        bytes[51] = 0x12;
+        let packet = dissect(1, 0, bytes);
+        assert!(packet.protocols.contains(&Protocol::Vlan));
+        assert_eq!(packet.tcp.expect("TCP metadata").flags, vec!["SYN", "ACK"]);
+    }
+}

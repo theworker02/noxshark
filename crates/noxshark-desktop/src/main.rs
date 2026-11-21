@@ -94,7 +94,7 @@ impl eframe::App for NoxSharkApp {
                 ui.label("Display filter");
                 let response = ui.add(
                     egui::TextEdit::singleline(&mut self.filter_text)
-                        .hint_text("protocol == TLS   ·   ip.addr == 1.2.3.4   ·   port == 443"),
+                        .hint_text("protocol == TLS and port == 443   ·   not protocol == ARP"),
                 );
                 if response.changed() {
                     self.selected = None;
@@ -128,6 +128,7 @@ impl eframe::App for NoxSharkApp {
                 ui.small(format!("IPv4 {} · IPv6 {}", stats.ipv4_packets, stats.ipv6_packets));
                 ui.small(format!("TLS {} · DNS {}", stats.tls_packets, stats.dns_packets));
                 ui.small(format!("HTTP {} · ARP {}", stats.http_packets, stats.arp_packets));
+                ui.small(format!("TCP {} · UDP {} · VLAN {}", stats.tcp_packets, stats.udp_packets, stats.vlan_packets));
                 ui.separator();
                 ui.label(RichText::new("Capture filters").strong());
                 ui.small("Validated syntax ready for an approved live adapter:");
@@ -238,6 +239,19 @@ impl eframe::App for NoxSharkApp {
                                     .unwrap_or_default()
                             ));
                         }
+                        if let Some(tcp) = &packet.tcp {
+                            ui.label(format!(
+                                "TCP: seq {} · ack {} · flags {} · payload {} bytes",
+                                tcp.sequence_number,
+                                tcp.acknowledgement_number,
+                                if tcp.flags.is_empty() {
+                                    "—".to_owned()
+                                } else {
+                                    tcp.flags.join(", ")
+                                },
+                                tcp.payload_len,
+                            ));
+                        }
                         ui.separator();
                         ui.monospace(
                             packet
@@ -255,4 +269,3 @@ impl eframe::App for NoxSharkApp {
             });
     }
 }
-

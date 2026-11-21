@@ -20,8 +20,9 @@ It is **not** a Wireshark mirror or a copy of Wireshark source code. This reposi
 | --- | --- |
 | Desktop | Native Rust GUI with `eframe` / `egui` |
 | Capture files | Bounded parsing for classic Ethernet PCAP and little-endian PCAPNG |
-| Protocols | Ethernet, ARP, IPv4, IPv6, ICMP, TCP, UDP, DNS, HTTP/1, and TLS records |
-| Filtering | Display filters for protocol, address, port, and text; validated capture-filter language for a future live-capture adapter |
+| Protocols | Ethernet with 802.1Q / QinQ VLAN tags, ARP, IPv4, IPv6, ICMP, TCP, UDP, DNS, HTTP/1, and TLS records |
+| Inspection | TCP sequence / acknowledgement numbers, flags, and payload lengths; DNS questions; HTTP headers; TLS record and ClientHello SNI metadata |
+| Filtering | Display filters for protocol, address, port, and text, combinable with `and`, `or`, and `not`; validated capture-filter language for a future live-capture adapter |
 | TLS | Record metadata and ClientHello SNI recognition—no decryption or encryption bypassing |
 
 ## Run locally
