@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/noxshark-core", "crates/noxshark-desktop", "crates/noxshark-cli"]
+members = ["crates/noxshark-core", "crates/noxshark-desktop", "crates/noxshark-cli", "crates/noxshark-capture-npcap"]
 resolver = "2"
 
 [workspace.package]

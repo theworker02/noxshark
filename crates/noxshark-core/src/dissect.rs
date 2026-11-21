@@ -247,6 +247,7 @@ fn dissect_tcp(
         acknowledgement_number: u32::from_be_bytes([data[8], data[9], data[10], data[11]]),
         flags: flags.clone(),
         payload_len: data.len() - header_len,
+        payload: data[header_len..].to_vec(),
     });
     summary.info = if flags.is_empty() {
         format!("{src} → {dst}")

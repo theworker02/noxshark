@@ -75,6 +75,7 @@ pub struct TcpMetadata {
     pub acknowledgement_number: u32,
     pub flags: Vec<&'static str>,
     pub payload_len: usize,
+    pub payload: Vec<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

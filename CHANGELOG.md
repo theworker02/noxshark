@@ -10,6 +10,9 @@
 - Added DHCPv4 message, hostname, and requested-address inspection plus DNS response status and answer counts.
 - Added an explicit Rust rewrite parity matrix to keep future compatibility work measurable and honest.
 - Added a dependency-free CLI for filtered table, JSON, and CSV exports, plus typed packet-field projection and built-in dissector descriptors.
+- Added bounded offline TCP stream reconstruction with retransmission de-duplication and gap reporting.
+- Added a Windows Npcap availability boundary that never loads a DLL or opens a capture interface.
+- Added a Windows-only Rust Npcap adapter crate that enumerates interfaces and runs approved BPF capture on a dedicated thread when the Npcap SDK is installed.
 - Documented the Rust workspace organization alongside the responsibilities expected in a mature packet-analysis project.
 - Added contributor guidance, capture-fixture policy, and repository ignore rules for local capture data and build artifacts.
 

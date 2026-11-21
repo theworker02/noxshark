@@ -12,4 +12,4 @@ workspace = true
 eframe = "0.31"
 rfd = "0.15"
 noxshark-core = { path = "../noxshark-core" }
-
+noxshark-capture-npcap = { path = "../noxshark-capture-npcap" }

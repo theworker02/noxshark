@@ -1,5 +1,8 @@
 use eframe::egui::{self, Color32, RichText};
-use noxshark_core::{CaptureStatistics, DisplayFilter, Packet, read_pcap};
+use noxshark_core::{
+    CaptureAvailability, CaptureStatistics, DisplayFilter, Packet, npcap_availability, read_pcap,
+    reassemble_tcp_streams,
+};
 use std::path::PathBuf;
 
 fn main() -> eframe::Result<()> {
@@ -87,7 +90,11 @@ impl eframe::App for NoxSharkApp {
                 if ui.button("Open capture").clicked() {
                     self.open_capture();
                 }
+                let availability = npcap_availability();
                 ui.add_enabled(false, egui::Button::new("Start capture"));
+                if let CaptureAvailability::Unavailable(reason) = availability {
+                    ui.small(reason);
+                }
                 ui.label(RichText::new("Offline analysis · Live capture adapter pending").weak());
             });
             ui.horizontal(|ui| {
@@ -274,6 +281,17 @@ impl eframe::App for NoxSharkApp {
                                 },
                                 tcp.payload_len,
                             ));
+                            let streams = reassemble_tcp_streams(&self.packets);
+                            if let Some(stream) = streams
+                                .iter()
+                                .find(|stream| stream.packet_numbers.contains(&packet.number))
+                            {
+                                ui.label(format!(
+                                    "Reassembled stream: {} bytes · {} gap(s)",
+                                    stream.bytes.len(),
+                                    stream.gap_count
+                                ));
+                            }
                         }
                         ui.separator();
                         ui.monospace(

@@ -22,6 +22,7 @@ It is **not** a Wireshark mirror or a copy of Wireshark source code. This reposi
 | Capture files | Bounded parsing for classic Ethernet PCAP and little-endian PCAPNG |
 | Protocols | Ethernet with 802.1Q / QinQ VLAN tags, ARP, IPv4, IPv6, ICMP, TCP, UDP, DNS, DHCPv4, HTTP/1, and TLS records |
 | Inspection | TCP sequence / acknowledgement numbers, flags, and payload lengths; DNS response status and answers; DHCP message / hostname metadata; HTTP headers; TLS record and ClientHello SNI metadata |
+| Streams | Bounded, direction-specific offline TCP payload reconstruction with retransmission de-duplication and gap reporting |
 | Filtering | Display filters for protocol, address, port, and text, combinable with `and`, `or`, and `not`; validated capture-filter language for a future live-capture adapter |
 | TLS | Record metadata and ClientHello SNI recognition—no decryption or encryption bypassing |
 
@@ -56,6 +57,10 @@ cargo clippy --workspace --all-targets -- -D warnings
 NoxShark is an early, working foundation—not a feature-complete replacement for Wireshark. Live capture, TCP stream reassembly, complete TLS extension coverage, timestamp-resolution options, and controlled decryption-key support remain future work.
 
 Live capture will require a platform-specific, permissioned adapter such as Npcap or libpcap. NoxShark will not expose arbitrary shell execution or accept unvalidated BPF input.
+
+On Windows, NoxShark detects whether Npcap is present but deliberately leaves the capture button disabled until a reviewed native backend is implemented. Detection does not load a DLL, open an interface, or capture traffic.
+
+The Rust Npcap adapter is now available as an isolated crate. It requires the Npcap runtime and SDK to link on Windows; see [docs/LIVE_CAPTURE.md](docs/LIVE_CAPTURE.md). Desktop capture controls will be enabled after the explicit interface-selection flow is connected.
 
 ## Project organization
 

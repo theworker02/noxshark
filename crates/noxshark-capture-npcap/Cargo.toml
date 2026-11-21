@@ -1,0 +1,8 @@
+[package]
+name = "noxshark-capture-npcap"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+pcap = "2.5"
