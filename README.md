@@ -19,10 +19,11 @@ It is **not** a Wireshark mirror or a copy of Wireshark source code. This reposi
 | Area | Implemented today |
 | --- | --- |
 | Desktop | Native Rust GUI with `eframe` / `egui` |
-| Capture files | Bounded parsing for classic Ethernet PCAP and little-endian PCAPNG |
+| Capture files | Bounded parsing for classic Ethernet PCAP and little-endian PCAPNG, including per-interface timestamp-resolution options |
 | Protocols | Ethernet with 802.1Q / QinQ VLAN tags, ARP, IPv4, IPv6, ICMP, TCP, UDP, DNS, DHCPv4, HTTP/1, and TLS records |
 | Inspection | TCP sequence / acknowledgement numbers, flags, and payload lengths; DNS response status and answers; DHCP message / hostname metadata; HTTP headers; TLS record and ClientHello SNI metadata |
 | Streams | Bounded, direction-specific offline TCP payload reconstruction with retransmission de-duplication and gap reporting |
+| Analysis | Reusable endpoint and directional conversation summaries for desktop and CLI surfaces |
 | Filtering | Display filters for protocol, address, port, and text, combinable with `and`, `or`, and `not`; validated capture-filter language for a future live-capture adapter |
 | TLS | Record metadata and ClientHello SNI recognition—no decryption or encryption bypassing |
 
@@ -42,7 +43,7 @@ The Rust workspace also includes a headless reader for reproducible inspection a
 cargo run -p noxshark-cli -- capture.pcap --filter "protocol == DNS" --format json
 ```
 
-Supported formats are `table`, `csv`, and `json`. The CLI reads only the explicitly supplied capture file.
+Supported formats are `table`, `csv`, `json`, and `summary`; `--summary` is a shorthand for capture-wide protocol, endpoint, and conversation totals. The CLI reads only the explicitly supplied capture file.
 
 ## Verify
 

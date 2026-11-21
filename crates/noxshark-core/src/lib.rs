@@ -3,6 +3,7 @@
 //! This crate only parses capture files supplied by the caller. It does not
 //! capture traffic, open sockets, or decrypt TLS payloads.
 
+pub mod analysis;
 pub mod capture;
 pub mod capture_filter;
 pub mod display_filter;
@@ -16,6 +17,7 @@ pub mod reassembly;
 pub mod registry;
 pub mod statistics;
 
+pub use analysis::{ConversationSummary, EndpointSummary, conversations, endpoints};
 pub use capture::{CaptureAvailability, npcap_availability};
 pub use capture_filter::{CaptureFilter, CaptureFilterError};
 pub use display_filter::{DisplayFilter, DisplayFilterError};

@@ -61,7 +61,9 @@ pub fn read_pcapng(bytes: &[u8]) -> Result<Vec<Packet>, NoxSharkError> {
                         "PCAPNG interface block is truncated".into(),
                     ));
                 }
-                interfaces.push(u16::from_le_bytes([body[0], body[1]]));
+                let link_type = u16::from_le_bytes([body[0], body[1]]);
+                let timestamp_units = pcapng_timestamp_units(&body[8..]).unwrap_or(1_000_000);
+                interfaces.push((link_type, timestamp_units));
             }
             6 => {
                 if body.len() < 20 {
@@ -71,7 +73,12 @@ pub fn read_pcapng(bytes: &[u8]) -> Result<Vec<Packet>, NoxSharkError> {
                 }
                 let interface =
                     u32::from_le_bytes(body[..4].try_into().expect("fixed header")) as usize;
-                if interfaces.get(interface) != Some(&1) {
+                let Some((link_type, timestamp_units)) = interfaces.get(interface).copied() else {
+                    return Err(NoxSharkError::InvalidCapture(
+                        "PCAPNG packet references an unknown interface".into(),
+                    ));
+                };
+                if link_type != 1 {
                     return Err(NoxSharkError::UnsupportedCapture(
                         "only Ethernet PCAPNG interfaces are supported".into(),
                     ));
@@ -93,7 +100,9 @@ pub fn read_pcapng(bytes: &[u8]) -> Result<Vec<Packet>, NoxSharkError> {
                 })?;
                 packets.push(dissect(
                     packets.len() + 1,
-                    (u64::from(timestamp_high) << 32) | u64::from(timestamp_low),
+                    ((u64::from(timestamp_high) << 32) | u64::from(timestamp_low))
+                        .saturating_mul(1_000_000)
+                        / timestamp_units,
                     data.to_vec(),
                 ));
             }
@@ -102,6 +111,32 @@ pub fn read_pcapng(bytes: &[u8]) -> Result<Vec<Packet>, NoxSharkError> {
         offset += block_len;
     }
     Ok(packets)
+}
+
+fn pcapng_timestamp_units(options: &[u8]) -> Option<u64> {
+    let mut offset = 0;
+    while offset + 4 <= options.len() {
+        let code = u16::from_le_bytes([options[offset], options[offset + 1]]);
+        let length = usize::from(u16::from_le_bytes([
+            options[offset + 2],
+            options[offset + 3],
+        ]));
+        offset += 4;
+        let value = options.get(offset..offset + length)?;
+        offset = offset.checked_add((length + 3) & !3)?;
+        if code == 0 {
+            break;
+        }
+        if code == 9 && value.len() == 1 {
+            let resolution = value[0];
+            return if resolution & 0x80 == 0 {
+                10_u64.checked_pow(u32::from(resolution))
+            } else {
+                2_u64.checked_pow(u32::from(resolution & 0x7f))
+            };
+        }
+    }
+    None
 }
 
 #[cfg(test)]
@@ -120,4 +155,3 @@ mod tests {
         assert_eq!(read_pcapng(&bytes).expect("valid section").len(), 0);
     }
 }
-
